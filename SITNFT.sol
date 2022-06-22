@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 
 
 import "./Base64.sol";
@@ -14,92 +13,82 @@ contract SITNFT is ERC721, ERC721Enumerable, RoleControl {
   using Counters for Counters.Counter;
   Counters.Counter private _tokenIdCounter;
   using Strings for uint256;
-  string[] public gradeValues = ["A+","A","A-","B+","B","B-","C+","C","D+","D","F"];
-
-  struct Grade {
-      string name;
-      string description;
-      string bgHue;
-      string value;
-      address minter;
-      address recipient;
-  }
 
   struct Attribute {
       string moduleCode;
-      string name;
+      string testType;
       string grade;
       string trimester;
-      address faculty;
       address recipient;
+      address base;
   }
 
-  mapping(uint256 => Grade) public grades;
-
-  mapping(uint256 => Attribute) private _attributes;
-
+  mapping(uint256 => Attribute) public attributes;
   mapping(string => address) private _studentAddress;
+
   
   constructor() ERC721("SIT NFT", "SIT") RoleControl(msg.sender) {
   }
 
-  function studentAddress(string memory studentId) public view onlyAdmin returns (address) {
+  function addStudentAddress(string memory _id, address _address ) public onlyAdmin {
+    _studentAddress[_id] = _address;
+  }
+  
+
+  function studentAddress(string memory studentId) public view onlyFaculty returns (address) {
     return _studentAddress[studentId];
   }
 
   // public
-  function mint() public onlyFaculty{
+  function mint(string memory moduleCode, string memory testType, string memory grade, string memory trimester, address recipient) public onlyFaculty {
     uint256 supply = totalSupply();
-    
-    Grade memory newGrade = Grade(
-      string(abi.encodePacked('OCN #', uint256(supply+1).toString())),
-      "Test Description",
-      randomNum(361, block.difficulty, supply).toString(),
-      gradeValues[randomNum(gradeValues.length,block.difficulty, supply)],
-      msg.sender,
-      0xdCb20126d95f7c3645cb82da8a14a992983adA1e
+    Attribute memory newAttribute = Attribute(
+      moduleCode,
+      testType,
+      grade,
+      trimester,
+      recipient,
+      getOwner()
     );
-    
-    grades[supply + 1] = newGrade;
 
-    _safeMint(msg.sender, supply + 1);
+    attributes[supply + 1] = newAttribute;
+    _safeMint(newAttribute.recipient,supply + 1);
   }
 
-  function multiMint() public onlyFaculty {
-    uint i = 0;
-    for(i; i < 100; i++) {
-      uint256 supply = totalSupply();
-      Grade memory newGrade = Grade(
-      string(abi.encodePacked('OCN #', uint256(supply+1).toString())),
-      Strings.toString(i),
-      randomNum(361, block.difficulty, supply).toString(),
-      gradeValues[randomNum(gradeValues.length,block.difficulty, supply)],
-      msg.sender,
-      0xdCb20126d95f7c3645cb82da8a14a992983adA1e
-    );
-      grades[supply + 1] = newGrade;
-      _safeMint(msg.sender, supply + 1);
-    }
+  function generateModuleSection(uint256 _tokenId) internal view returns (string memory) {
+        Attribute memory currentAttribute = attributes[_tokenId];
+      return string(abi.encodePacked(
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="13" y="98.877">Module: </text>',
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="77" y="98.877">',currentAttribute.moduleCode,'</text>',
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="13" y="114.877">Type:</text>',
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="76.697" y="114.877">',currentAttribute.testType,'</text>',
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="13" y="146.877">Trimester:</text>',
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="95.434" y="146.877">',currentAttribute.trimester,',</text>'
+            )
+        );
   }
 
-  function randomNum(uint256 _mod, uint256 _seed, uint256 _salt) public view returns(uint256) {
-    uint256 num = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, _seed, _salt))) % _mod;
-    return num;
+  function generateBase64Image(uint256 _tokenId) public view returns (string memory) {
+        return Base64.encode(bytes(generateImage(_tokenId)));
   }
+  
 
-  function buildImage(uint256 _tokenId) public view returns (string memory) {
-    Grade memory currentGrade = grades[_tokenId];
-    return Base64.encode(bytes(abi.encodePacked(
-      '<svg width="500" height="500" xmlns="http://www.w3.org/2000/svg">',
-      '<rect height="500" width="502" y="1" x="-1" stroke="#000" fill="hsl(',currentGrade.bgHue,', 50%, 25%)"/>',
-      '<text font-style="normal" transform="matrix(1 0 0 1 0 0)" xml:space="preserve" text-anchor="start" font-family="Noto Sans JP" font-size="250" y="334.5" x="89.22656" stroke-width="0" stroke="#000" fill="#ffffff">',currentGrade.value,'</text>',
+  function generateImage(uint256 _tokenId) public view returns(string memory) {
+    Attribute memory currentAttribute = attributes[_tokenId];
+    string memory moduleSection = generateModuleSection(_tokenId);
+    return string(abi.encodePacked(
+      '<svg width="350" height="350" viewBox="0 0 350 350" xmlns="http://www.w3.org/2000/svg">',
+      moduleSection,
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="13" y="130.877">Grade:</text>',
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="77.283" y="130.877">',currentAttribute.grade,'</text>',
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 16.4px;" x="13" y="162.877">Recipient:</text>',
+      '<text style="white-space: pre; fill: rgb(51, 51, 51); font-family: Arial, sans-serif; font-size: 12px;" x="13" y="181.158">',toHexString(uint160(currentAttribute.recipient), 20),'</text>',
       '</svg>'
-    )));
+    ));
   }
 
-  function buildMetadata(uint256 _tokenId) public view returns(string memory) {
-    
-  }
+  
+
   
   function tokenURI(uint256 _tokenId)
     public
@@ -112,17 +101,25 @@ contract SITNFT is ERC721, ERC721Enumerable, RoleControl {
       _exists(_tokenId),
       "ERC721Metadata: URI query for nonexistent token"
     );
-    Grade memory currentGrade = grades[_tokenId];
+    Attribute memory currentAttribute = attributes[_tokenId];
+
+    string memory image = generateBase64Image(_tokenId);
 
     return string(abi.encodePacked(
       'data:application/json;base64,', Base64.encode(bytes(abi.encodePacked(
-        '{"name": "',
-        currentGrade.name,
-        '", "description":"',
-        currentGrade.description,
+        '{"moduleCode": "',
+        currentAttribute.moduleCode,
+        '", "testType":"',
+        currentAttribute.testType,
+        '","Grade":"',
+        currentAttribute.grade,
+        '","Trimester":"',
+        currentAttribute.trimester,
+        '","Recipient":"',
+        toHexString(uint160(currentAttribute.recipient), 20),
         '", "image": "',
         'data:image/svg+xml;base64,',
-        buildImage(_tokenId),
+        image,
         '"}')))));
   }
 
@@ -132,9 +129,9 @@ contract SITNFT is ERC721, ERC721Enumerable, RoleControl {
     {
         super._beforeTokenTransfer(from, to, _tokenId);
 
-        Grade memory currentGrade = grades[_tokenId];
-
-        require(to == currentGrade.recipient  || to   == currentGrade.minter , "Target is not the recipient.");
+        Attribute memory currentAttribute = attributes[_tokenId];
+        
+        require(to == currentAttribute.recipient || to == currentAttribute.base , "Target is not the recipient.");
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -146,8 +143,25 @@ contract SITNFT is ERC721, ERC721Enumerable, RoleControl {
         return super.supportsInterface(interfaceId);
     }
 
-    function addStudentAddress(string memory _id, address _address ) public onlyAdmin {
-      _studentAddress[_id] = _address;
+
+
+    bytes16 private constant _ALPHABET = "0123456789abcdef";
+
+    /**
+     * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation with fixed length.
+     */
+    function toHexString(uint256 value, uint256 length) internal pure returns (string memory) {
+        bytes memory buffer = new bytes(2 * length + 2);
+        buffer[0] = "0";
+        buffer[1] = "x";
+        for (uint256 i = 2 * length + 1; i > 1; --i) {
+            buffer[i] = _ALPHABET[value & 0xf];
+            value >>= 4;
+        }
+        require(value == 0, "HEX_L");
+        return string(buffer);
     }
+
+
 
 }
