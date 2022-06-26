@@ -30,12 +30,11 @@ contract SITNFT is ERC721, ERC721Enumerable, RoleControl {
   constructor() ERC721("SIT NFT", "SIT") RoleControl(msg.sender) {
   }
 
-  function addStudentAddress(string memory _id, address _address ) public onlyAdmin {
+  function addStudentAddress(string memory _id, address _address ) private {
     bytes32 encryptedId = keccak256(abi.encodePacked(_id));
     _studentAddress[encryptedId] = _address;
   }
   
-
   function getStudentAddress(string memory _id) private view returns (address) {
     bytes32 encryptedId = keccak256(abi.encodePacked(_id));
     require(_studentAddress[encryptedId] != address(0) , "Student does not exist.");
