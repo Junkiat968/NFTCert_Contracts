@@ -24,30 +24,33 @@ contract SITNFT is ERC721, ERC721Enumerable, RoleControl {
   }
 
   mapping(uint256 => Attribute) public attributes;
-  mapping(string => address) private _studentAddress;
+  mapping(bytes32 => address) private _studentAddress;
 
   
   constructor() ERC721("SIT NFT", "SIT") RoleControl(msg.sender) {
   }
 
   function addStudentAddress(string memory _id, address _address ) public onlyAdmin {
-    _studentAddress[_id] = _address;
+    bytes32 encryptedId = keccak256(abi.encodePacked(_id));
+    _studentAddress[encryptedId] = _address;
   }
   
 
-  function studentAddress(string memory studentId) public view onlyFaculty returns (address) {
-    return _studentAddress[studentId];
+  function getStudentAddress(string memory _id) private view returns (address) {
+    bytes32 encryptedId = keccak256(abi.encodePacked(_id));
+    require(_studentAddress[encryptedId] != address(0) , "Student does not exist.");
+    return _studentAddress[encryptedId];
   }
 
   // public
-  function mint(string memory moduleCode, string memory testType, string memory grade, string memory trimester, address recipient) public onlyFaculty {
+  function mint(string memory moduleCode, string memory testType, string memory grade, string memory trimester, string memory recipient) public onlyFaculty {
     uint256 supply = totalSupply();
     Attribute memory newAttribute = Attribute(
       moduleCode,
       testType,
       grade,
       trimester,
-      recipient,
+      getStudentAddress(recipient),
       getOwner()
     );
 

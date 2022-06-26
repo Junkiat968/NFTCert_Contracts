@@ -9,11 +9,12 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 contract RoleControl is AccessControlEnumerable {
     // keccak256 to create hash that identify constant in contract
     bytes32 public constant FACULTY_ROLE = keccak256("FACULTY"); // hash FACULTY as role constant
-
+    address private owner;
     /*
     * @dev Add 'root' to admin role.
     */
     constructor (address root) {
+        owner = root;
         // give msg.sender roles 
         _setupRole(DEFAULT_ADMIN_ROLE, root);
         // Set role hierarchy
@@ -70,6 +71,12 @@ contract RoleControl is AccessControlEnumerable {
     function removeFaculty(address account) public virtual onlyAdmin
      {
         revokeRole(FACULTY_ROLE, account);
+    }
+
+    // Get owner of contract
+    function getOwner(
+    ) public view returns (address) {    
+        return owner;
     }
 
 }
