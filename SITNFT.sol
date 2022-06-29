@@ -5,7 +5,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-
 import "./Base64.sol";
 import "./RoleControl.sol";
 
@@ -13,6 +12,11 @@ contract SITNFT is ERC721, ERC721Enumerable, RoleControl {
   using Counters for Counters.Counter;
   Counters.Counter private _tokenIdCounter;
   using Strings for uint256;
+
+  struct IdAddress {
+      string id;
+      address addr;
+  }
 
   struct Attribute {
       string moduleCode;
@@ -26,16 +30,21 @@ contract SITNFT is ERC721, ERC721Enumerable, RoleControl {
   mapping(uint256 => Attribute) public attributes;
   mapping(bytes32 => address) private _studentAddress;
 
-  
   constructor() ERC721("SIT NFT", "SIT") RoleControl(msg.sender) {
   }
 
-  function addStudentAddress(string memory _id, address _address )  public onlyAdmin {
+  function addStudentAddress(string memory _id, address _address ) public onlyAdmin {
     bytes32 encryptedId = keccak256(abi.encodePacked(_id));
     _studentAddress[encryptedId] = _address;
   }
-  
-  function getStudentAddress(string memory _id) public view onlyFaculty returns (address) {
+
+  function multiAddStudentAddress(IdAddress[] memory _array) public onlyAdmin {
+    for(uint i=0; i <_array.length; i++) {
+      addStudentAddress(_array[i].id, _array[i].addr);
+    }
+  }
+
+  function getStudentAddress(string memory _id) public view onlyFaculty returns (address){
     bytes32 encryptedId = keccak256(abi.encodePacked(_id));
     require(_studentAddress[encryptedId] != address(0) , "Student does not exist.");
     return _studentAddress[encryptedId];
