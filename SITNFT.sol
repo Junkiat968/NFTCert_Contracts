@@ -108,7 +108,6 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
      */
 
   function mint(string memory moduleCode, string memory testType, string memory grade, string memory trimester, string memory recipient) public onlyFaculty {
-    uint256 supply = totalSupply();
     Attribute memory newAttribute = Attribute(
       moduleCode,
       testType,
@@ -117,9 +116,10 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
       msg.sender,
       _getStudentAddress(recipient)
     );
-
-    _attributes[supply + 1] = newAttribute;
-    _safeMint(newAttribute.recipient,supply + 1);
+    _tokenIdCounter.increment();
+    uint256 tokenId = _tokenIdCounter.current();
+    _attributes[tokenId] = newAttribute;
+    _safeMint(newAttribute.recipient,tokenId);
   }
 
     function generatePaletteSection(uint256 _tokenId, uint256 pIndex) private view returns (string memory) {
