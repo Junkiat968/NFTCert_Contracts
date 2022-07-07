@@ -3,7 +3,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 import "./Base64.sol";
@@ -81,7 +80,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
      *
      * - The caller must be an admin.
      */
-  function multiAddStudentAddress(IdAddress[] memory _array) public onlyAdmin {
+  function multiAddStudentAddress(IdAddress[] calldata _array) external onlyAdmin {
     for(uint i=0; i <_array.length; i++) {
       addStudentAddress(_array[i].id, _array[i].addr);
     }
@@ -107,7 +106,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
      * - The caller must be a faculty
      */
 
-  function mint(string memory moduleCode, string memory testType, string memory grade, string memory trimester, string memory recipient) public onlyFaculty {
+  function mint(string calldata moduleCode, string calldata testType, string calldata grade, string calldata trimester, string calldata recipient) external onlyFaculty {
     Attribute memory newAttribute = Attribute(
       moduleCode,
       testType,
@@ -199,7 +198,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
         return buildMetadata(_tokenId);
     }
 
-    function attributes(uint256 _tokenId) public view virtual returns (string memory, string memory, string memory, string memory, address) {
+    function attributes(uint256 _tokenId) external view virtual returns (string memory, string memory, string memory, string memory, address) {
         require(_exists(_tokenId), "ERC721Metadata: attribute query for nonexistent token");
         return (_attributes[_tokenId].moduleCode,_attributes[_tokenId].testType,_attributes[_tokenId].grade,_attributes[_tokenId].trimester,_attributes[_tokenId].recipient);
     }
@@ -278,9 +277,10 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
      *
      * - The caller must own `tokenId` or be an approved operator.
      */
-    function burn(uint256 tokenId) public onlyFaculty {
+    function burn(uint256 tokenId) external onlyFaculty {
         //solhint-disable-next-line max-line-length
         require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721Burnable: caller is not owner nor approved");
+        require(msg.sender == _attributes[tokenId].faculty, "Only faculty who minted this token can burn it.");
         Attribute memory burnAttribute = Attribute(
         "",
         "",
@@ -301,14 +301,14 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
      * - to: must be a faculty address
      */
     function approve(address to, uint256 tokenId) public virtual override(ERC721,IERC721) {
-        require(isFaculty(to) == true ,"Only faculty can be approved to burn tokens.");
-        address owner = ERC721.ownerOf(tokenId);
-        require(to != owner, "ERC721: approval to current owner");
+        require(isFaculty(to) ,"Only faculty can be approved to burn tokens.");
+        require(to == _attributes[tokenId].faculty, "Only faculty who minted this token can be approved.");
+        address tokenOwner = ERC721.ownerOf(tokenId);
+        require(to != tokenOwner, "ERC721: approval to current owner");
         require(
-            _msgSender() == owner || isApprovedForAll(owner, _msgSender()),
+            _msgSender() == tokenOwner || isApprovedForAll(tokenOwner, _msgSender()),
             "ERC721: approve caller is not owner nor approved for all"
         );
-
         _approve(to, tokenId);
     }
 
