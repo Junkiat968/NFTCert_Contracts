@@ -1,4 +1,4 @@
-# Smart Contracts 
+# Smart Contracts
 
 ### Role Control
 
@@ -17,3 +17,10 @@ constructor() ERC721("TEST NFT", "NFT") RoleControl(msg.sender) {
 }
 ```
 
+## Using Slither to audit smart contract
+
+- Install slither on python env and solc.
+
+```bash
+slither contracts/SITNFT.sol --solc-remaps @openzeppelin/=$(pwd)/node_modules/@openzeppelin/
+```
