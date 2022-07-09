@@ -51,7 +51,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
   
   event Log(string message);
   event IndexedLog(address indexed sender, string message);
-  event Mint(address indexed sender, uint256 tokenId);
+  event Mint(address indexed sender, uint256 tokenId, string moduleCode);
 
 
 // Mapping
@@ -120,7 +120,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
     uint256 tokenId = _tokenIdCounter.current();
     _attributes[tokenId] = newAttribute;
     _safeMint(newAttribute.recipient,tokenId);
-    emit Mint(msg.sender, tokenId);
+    emit Mint(msg.sender, tokenId, moduleCode);
   }
 
     function generatePaletteSection(uint256 _tokenId, uint256 pIndex) private view returns (string memory) {
