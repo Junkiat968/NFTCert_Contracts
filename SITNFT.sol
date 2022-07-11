@@ -37,6 +37,13 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
       string id;
       address addr;
   }
+  struct ParamAttribute {
+      string moduleCode;
+      string testType;
+      string grade;
+      string trimester;
+      string recipient;
+  }
 
   struct Attribute {
       string moduleCode;
@@ -54,9 +61,11 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
   event Mint(address indexed sender, uint256 tokenId, string moduleCode);
 
 
+
 // Mapping
   mapping(uint256 => Attribute) private _attributes;
   mapping(bytes32 => address) private _studentAddress;
+  mapping(address => bytes32) private _getStudentFromAddress;
 
   constructor() ERC721("SIT NFT", "SIT") RoleControl(msg.sender) {
   }
@@ -71,6 +80,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
   function addStudentAddress(string memory _id, address _address ) public onlyAdmin {
     bytes32 encryptedId = keccak256(abi.encodePacked(_id));
     _studentAddress[encryptedId] = _address;
+    _getStudentFromAddress[_address] = encryptedId;
     emit IndexedLog(msg.sender,"addStudentSucceed");
   }
 
@@ -99,6 +109,14 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
     return _studentAddress[encryptedId];
   }
 
+  /**
+  * @dev Check if address is student
+  *
+   */
+   function isStudent(address account) public view returns(bool){
+        return _getStudentFromAddress[account] != 0;
+   }
+
     /**
      * @dev Mint with parameters
      *
@@ -122,6 +140,31 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
     _safeMint(newAttribute.recipient,tokenId);
     emit Mint(msg.sender, tokenId, moduleCode);
   }
+
+      /**
+    * Batch mint tokens
+    */
+    function batchMint(ParamAttribute[] calldata _array) external {
+        uint numberOfTokens = _array.length;
+        require(numberOfTokens <= 10, "Can only mint 10 tokens at a time");
+        for(uint i = 0; i < numberOfTokens; i++) {
+            Attribute memory newAttribute = Attribute(
+                _array[i].moduleCode,
+                _array[i].testType,
+                _array[i].grade,
+                _array[i].trimester,
+                msg.sender,
+                _getStudentAddress(_array[i].recipient)
+            );
+            _tokenIdCounter.increment();
+            uint256 tokenId = _tokenIdCounter.current();
+            _attributes[tokenId] = newAttribute;
+            _safeMint(newAttribute.recipient,tokenId);
+            emit Mint(msg.sender, tokenId, newAttribute.moduleCode);
+        }
+        emit IndexedLog(msg.sender,"BatchMintComplete");
+    }
+
 
     function generatePaletteSection(uint256 _tokenId, uint256 pIndex) private view returns (string memory) {
         return string(abi.encodePacked(

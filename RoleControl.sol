@@ -48,11 +48,13 @@ contract RoleControl is AccessControlEnumerable {
 
     // Grant admin privilege to an address.
     function addAdmin(address account) external virtual onlyAdmin {
+        require(!isFaculty(account), "Faculty cannot be an admin.");
         grantRole(DEFAULT_ADMIN_ROLE, account);
     }
 
     // Grant faculty privilege to an address. Restricted to Admins.
     function addFaculty(address account) external virtual onlyAdmin {
+        require(!isAdmin(account), "Admin cannot be a faculty.");
         grantRole(FACULTY_ROLE, account);
     }
 
