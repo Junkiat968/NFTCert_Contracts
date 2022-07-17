@@ -57,7 +57,6 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
   // Events
   
   event Log(string message);
-  event IndexedLog(address indexed sender, string message);
   event Mint(address indexed sender, uint256 tokenId, string moduleCode);
 
 
@@ -144,7 +143,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
       /**
     * Batch mint tokens
     */
-    function batchMint(ParamAttribute[] calldata _array) external {
+    function batchMint(ParamAttribute[] calldata _array) external onlyFaculty{
         uint numberOfTokens = _array.length;
         require(numberOfTokens <= 10, "Can only mint 10 tokens at a time");
         for(uint i = 0; i < numberOfTokens; i++) {
@@ -243,9 +242,9 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
         return buildMetadata(_tokenId);
     }
 
-    function attributes(uint256 _tokenId) external view virtual returns (string memory, string memory, string memory, string memory, address) {
+    function attributes(uint256 _tokenId) external view virtual returns (string memory, string memory, string memory, string memory, address ,address) {
         require(_exists(_tokenId), "ERC721Metadata: attribute query for nonexistent token");
-        return (_attributes[_tokenId].moduleCode,_attributes[_tokenId].testType,_attributes[_tokenId].grade,_attributes[_tokenId].trimester,_attributes[_tokenId].recipient);
+        return (_attributes[_tokenId].moduleCode,_attributes[_tokenId].testType,_attributes[_tokenId].grade,_attributes[_tokenId].trimester,_attributes[_tokenId].faculty,_attributes[_tokenId].recipient);
     }
 
       function _beforeTokenTransfer(address from, address to, uint256 _tokenId)

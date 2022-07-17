@@ -11,6 +11,8 @@ contract RoleControl is AccessControlEnumerable {
     bytes32 public constant FACULTY_ROLE = keccak256("FACULTY"); // hash FACULTY as role constant
     address private owner;
 
+   event IndexedLog(address indexed sender, string message);
+
     /*
      * @dev Add 'root' to admin role.
      */
@@ -57,6 +59,15 @@ contract RoleControl is AccessControlEnumerable {
         require(!isAdmin(account), "Admin cannot be a faculty.");
         grantRole(FACULTY_ROLE, account);
     }
+
+    // Grant faculty privilege to multiple addresses
+    function multiAddFaculty(address[] calldata _array) external virtual onlyAdmin {
+    for(uint i=0; i <_array.length; i++) {
+        require(!isAdmin(_array[i]), "Admin cannot be a faculty.");
+        grantRole(FACULTY_ROLE, _array[i]);
+    }
+    emit IndexedLog(msg.sender,"multiAddFacultySucceed");
+  }
 
     // Remove admin privilege on an address.
     function removeAdmin(address account) external virtual onlyAdmin {
