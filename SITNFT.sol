@@ -53,6 +53,12 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
       address faculty;
       address recipient;
   }
+  struct TransferStruct {
+        address sender;
+        string message;
+        uint256 timestamp;
+  }
+  TransferStruct[] transactions;
 
   // Events
   
@@ -164,6 +170,18 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
         emit IndexedLog(msg.sender,"BatchMintComplete");
     }
 
+  function addToBlockchain( string memory message) public {
+    transactions.push(TransferStruct(msg.sender, message, block.timestamp));
+    // emit Transfer(msg.sender, receiver, amount, message, block.timestamp, keyword);
+  }
+  function getAllTransactions() public view returns (TransferStruct[] memory) {
+    return transactions;
+  }
+  function setMetadata(uint256 _tokenId, string memory grade) public onlyFaculty returns (string memory) {
+        // attributes[_tokenId].testType = "EditedTest";
+        attributes[_tokenId].grade = grade;
+        return "success";
+  }
 
     function generatePaletteSection(uint256 _tokenId, uint256 pIndex) private view returns (string memory) {
         return string(abi.encodePacked(
