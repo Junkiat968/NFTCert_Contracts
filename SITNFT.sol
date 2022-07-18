@@ -179,7 +179,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
   }
   function setMetadata(uint256 _tokenId, string memory grade) public onlyFaculty returns (string memory) {
         // attributes[_tokenId].testType = "EditedTest";
-        attributes[_tokenId].grade = grade;
+        _attributes[_tokenId].grade = grade;
         return "success";
   }
 
