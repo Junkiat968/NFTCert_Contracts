@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
@@ -33,10 +33,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
         ["#dddddd", "#f9f3f3", "#f7d9d9", "#f25287"]
   ];
  
-  struct IdAddress {
-      string id;
-      address addr;
-  }
+
   struct ParamAttribute {
       string moduleCode;
       string testType;
@@ -56,71 +53,28 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
   struct TransferStruct {
         address sender;
         string message;
+        string tokenName;
+        uint256 tokenId;
+        address faculty;
         uint256 timestamp;
+        bool reviewed;
   }
-  TransferStruct[] transactions;
+//   TransferStruct[] transactions;
 
   // Events
   
   event Log(string message);
   event Mint(address indexed sender, uint256 tokenId, string moduleCode);
-
+  event RemodRequest(address indexed sender,uint256 tokenId, string message);
 
 
 // Mapping
   mapping(uint256 => Attribute) private _attributes;
-  mapping(bytes32 => address) private _studentAddress;
-  mapping(address => bytes32) private _getStudentFromAddress;
 
+  mapping(address => TransferStruct[]) private _remodRequests;
   constructor() ERC721("SIT NFT", "SIT") RoleControl(msg.sender) {
   }
 
-    /**
-     * @dev Add student address to mapping.
-     *
-     * Requirements:
-     *
-     * - The caller must be an admin.
-     */
-  function addStudentAddress(string memory _id, address _address ) public onlyAdmin {
-    bytes32 encryptedId = keccak256(abi.encodePacked(_id));
-    _studentAddress[encryptedId] = _address;
-    _getStudentFromAddress[_address] = encryptedId;
-    emit IndexedLog(msg.sender,"addStudentSucceed");
-  }
-
-    /**
-     * @dev Takes in an array of studentAddresses and calls addStudentAddress.
-     *
-     * Requirements:
-     *
-     * - The caller must be an admin.
-     */
-  function multiAddStudentAddress(IdAddress[] calldata _array) external onlyAdmin {
-    for(uint i=0; i <_array.length; i++) {
-      addStudentAddress(_array[i].id, _array[i].addr);
-    }
-    emit IndexedLog(msg.sender,"multiAddStudentSucceed");
-  }
-
-
-    /**
-     * @dev For contract to getStudentAddress
-     *
-     */
-  function _getStudentAddress(string memory _id) private view returns (address){
-    bytes32 encryptedId = keccak256(abi.encodePacked(_id));
-    require(_studentAddress[encryptedId] != address(0) , "Student does not exist.");
-    return _studentAddress[encryptedId];
-  }
-
-  /**
-  * @dev Check if address is student
-  *
-   */
-   function isStudent(address account) public view returns(bool){
-        return _getStudentFromAddress[account] != 0;
-   }
 
     /**
      * @dev Mint with parameters
@@ -170,17 +124,22 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
         emit IndexedLog(msg.sender,"BatchMintComplete");
     }
 
-  function addToBlockchain( string memory message) public {
-    transactions.push(TransferStruct(msg.sender, message, block.timestamp));
+  function addToBlockchain( string memory message,string memory tokenName, uint256 tokenId, address faculty) public {
+    // transactions.push(TransferStruct(msg.sender, message,tokenName,tokenId,faculty,block.timestamp,false));
+    // address faculty = _attributes[tokenId].faculty;
+    _remodRequests[faculty].push(TransferStruct(msg.sender,message,tokenName,tokenId,faculty,block.timestamp,false));
     // emit Transfer(msg.sender, receiver, amount, message, block.timestamp, keyword);
+    emit RemodRequest(msg.sender,tokenId, string.concat("Re-evaluation Request Send for ",toString(tokenId)));
   }
-  function getAllTransactions() public view returns (TransferStruct[] memory) {
-    return transactions;
+  function getAllTransactions(address faculty) public view returns (TransferStruct[] memory) { 
+    // return transactions;
+    return _remodRequests[faculty];
   }
-  function setMetadata(uint256 _tokenId, string memory grade) public onlyFaculty returns (string memory) {
-        // attributes[_tokenId].testType = "EditedTest";
+  function setMetadata(uint256 _tokenId, string memory grade,uint256 position) public onlyFaculty {
         _attributes[_tokenId].grade = grade;
-        return "success";
+        _remodRequests[msg.sender][position].reviewed = true;
+        emit RemodRequest(msg.sender,_tokenId, string.concat("Request Reviewed for Certificate ",toString(_tokenId)));
+        
   }
 
     function generatePaletteSection(uint256 _tokenId, uint256 pIndex) private view returns (string memory) {
@@ -203,9 +162,10 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
   
   function generateImage(uint256 _tokenId) private view returns (string memory) {
         // bytes memory hash = abi.encodePacked(bytes32(_tokenId));
-        uint256 random = uint(keccak256(abi.encodePacked(block.timestamp, msg.sender)));
+        uint256 random = uint(keccak256(abi.encodePacked(msg.sender)));
         bytes memory hash = abi.encodePacked(bytes32(random));
         uint256 pIndex = toUint8(hash,0)/16; // 16 palettes
+
         
         /* this is broken into functions to avoid stack too deep errors */
         string memory paletteSection = generatePaletteSection(_tokenId, pIndex);
@@ -236,6 +196,7 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
 
     function buildMetadata(uint256 _tokenId) private view returns(string memory) {
         string memory image = generateBase64Image(_tokenId);
+        string memory traits = generateTraitsSection(_tokenId);
         string memory json = Base64.encode(
             bytes(string(
                 abi.encodePacked(
@@ -243,15 +204,26 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
                     '"image": "', 
                     'data:image/svg+xml;base64,',
                     image,'",',
-                    '"attributes": [{"trait_type": "ModuleCode", "value": "', _attributes[_tokenId].moduleCode, '"},',
-                    '{"trait_type": "Type", "value": "', _attributes[_tokenId].testType, '"},',
-                    '{"trait_type": "Trimester", "value": "', _attributes[_tokenId].trimester, '"}',
-                    ']}'
+                    traits
                 )
             ))
         );
         return string(abi.encodePacked('data:application/json;base64,', json));
     }
+    function generateTraitsSection(uint256 _tokenId) private view returns (string memory) {
+        // string memory x =toHexString(uint160(_attributes[_tokenId].faculty), 20);
+        return string(abi.encodePacked(
+                    '"attributes": [{"trait_type": "ModuleCode", "value": "', _attributes[_tokenId].moduleCode, '"},',
+                    '{"trait_type": "Type", "value": "', _attributes[_tokenId].testType, '"},',
+                    '{"trait_type": "Faculty", "value": "', toHexString(uint160(_attributes[_tokenId].faculty), 20), '"},',
+                    '{"trait_type": "Trimester", "value": "', _attributes[_tokenId].trimester, '"}',
+                    ']}'
+            )
+            
+        );
+    }  
+
+
 
   
 
@@ -275,7 +247,6 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
         
         require(to == currentAttribute.recipient || to == getOwner() || to == address(0), "Target is not the recipient.");
     }
-
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -313,7 +284,6 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
         return tempUint;
     }    
     function toString(uint256 value) internal pure returns (string memory) {
-
         if (value == 0) {
             return "0";
         }
@@ -339,21 +309,21 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
      *
      * - The caller must own `tokenId` or be an approved operator.
      */
-    function burn(uint256 tokenId) external onlyFaculty {
-        //solhint-disable-next-line max-line-length
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721Burnable: caller is not owner nor approved");
-        require(msg.sender == _attributes[tokenId].faculty, "Only faculty who minted this token can burn it.");
-        Attribute memory burnAttribute = Attribute(
-        "",
-        "",
-        "",
-        "",
-        address(0),
-        address(0)
-        );
-        _attributes[tokenId] =  burnAttribute;
-        _burn(tokenId);
-    }
+    // function burn(uint256 tokenId) external onlyFaculty {
+    //     //solhint-disable-next-line max-line-length
+    //     require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721Burnable: caller is not owner nor approved");
+    //     require(msg.sender == _attributes[tokenId].faculty, "Only faculty who minted this token can burn it.");
+    //     Attribute memory burnAttribute = Attribute(
+    //     "",
+    //     "",
+    //     "",
+    //     "",
+    //     address(0),
+    //     address(0)
+    //     );
+    //     _attributes[tokenId] =  burnAttribute;
+    //     _burn(tokenId);
+    // }
 
     /**
      * @dev Override inherited approve. Allow only faculty to burn token. 
@@ -362,16 +332,16 @@ contract SITNFT is ERC721, ERC721Enumerable,RoleControl {
      *
      * - to: must be a faculty address
      */
-    function approve(address to, uint256 tokenId) public virtual override(ERC721,IERC721) {
-        require(isFaculty(to) ,"Only faculty can be approved to burn tokens.");
-        require(to == _attributes[tokenId].faculty, "Only faculty who minted this token can be approved.");
-        address tokenOwner = ERC721.ownerOf(tokenId);
-        require(to != tokenOwner, "ERC721: approval to current owner");
-        require(
-            _msgSender() == tokenOwner || isApprovedForAll(tokenOwner, _msgSender()),
-            "ERC721: approve caller is not owner nor approved for all"
-        );
-        _approve(to, tokenId);
-    }
+    // function approve(address to, uint256 tokenId) public virtual override(ERC721,IERC721) {
+    //     require(isFaculty(to) ,"Only faculty can be approved to burn tokens.");
+    //     require(to == _attributes[tokenId].faculty, "Only faculty who minted this token can be approved.");
+    //     address tokenOwner = ERC721.ownerOf(tokenId);
+    //     require(to != tokenOwner, "ERC721: approval to current owner");
+    //     require(
+    //         _msgSender() == tokenOwner || isApprovedForAll(tokenOwner, _msgSender()),
+    //         "ERC721: approve caller is not owner nor approved for all"
+    //     );
+    //     _approve(to, tokenId);
+    // }
 
 }

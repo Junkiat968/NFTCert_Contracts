@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL3
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.12;
 
 // Import the OpenZeppelin AccessControl contract
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
@@ -10,6 +10,13 @@ contract RoleControl is AccessControlEnumerable {
     // keccak256 to create hash that identify constant in contract
     bytes32 public constant FACULTY_ROLE = keccak256("FACULTY"); // hash FACULTY as role constant
     address private owner;
+  mapping(bytes32 => address) private _studentAddress;
+  mapping(address => bytes32) private _getStudentFromAddress;
+
+  struct IdAddress {
+      string id;
+      address addr;
+  }
 
    event IndexedLog(address indexed sender, string message);
 
@@ -51,12 +58,14 @@ contract RoleControl is AccessControlEnumerable {
     // Grant admin privilege to an address.
     function addAdmin(address account) external virtual onlyAdmin {
         require(!isFaculty(account), "Faculty cannot be an admin.");
+        require(!isStudent(account), "Student cannot be an admin");
         grantRole(DEFAULT_ADMIN_ROLE, account);
     }
 
     // Grant faculty privilege to an address. Restricted to Admins.
     function addFaculty(address account) external virtual onlyAdmin {
         require(!isAdmin(account), "Admin cannot be a faculty.");
+        require(!isStudent(account), "Student cannot be a faculty");
         grantRole(FACULTY_ROLE, account);
     }
 
@@ -64,6 +73,7 @@ contract RoleControl is AccessControlEnumerable {
     function multiAddFaculty(address[] calldata _array) external virtual onlyAdmin {
     for(uint i=0; i <_array.length; i++) {
         require(!isAdmin(_array[i]), "Admin cannot be a faculty.");
+        require(!isStudent(_array[i]), "Student cannot be a faculty");
         grantRole(FACULTY_ROLE, _array[i]);
     }
     emit IndexedLog(msg.sender,"multiAddFacultySucceed");
@@ -83,4 +93,55 @@ contract RoleControl is AccessControlEnumerable {
     function getOwner() public view returns (address) {
         return owner;
     }
+
+
+        /**
+     * @dev Add student address to mapping.
+     *
+     * Requirements:
+     *
+     * - The caller must be an admin.
+     */
+  function addStudentAddress(string memory _id, address _address ) public onlyAdmin {
+    require(!isAdmin(_address), "Admin cannot be a student.");
+    require(!isFaculty(_address), "Faculty cannot be a student.");
+    bytes32 encryptedId = keccak256(abi.encodePacked(_id));
+    _studentAddress[encryptedId] = _address;
+    _getStudentFromAddress[_address] = encryptedId;
+    emit IndexedLog(msg.sender,"addStudentSucceed");
+  }
+
+    /**
+     * @dev Takes in an array of studentAddresses and calls addStudentAddress.
+     *
+     * Requirements:
+     *
+     * - The caller must be an admin.
+     */
+  function multiAddStudentAddress(IdAddress[] calldata _array) external onlyAdmin {
+    for(uint i=0; i <_array.length; i++) {
+      addStudentAddress(_array[i].id, _array[i].addr);
+    }
+    emit IndexedLog(msg.sender,"multiAddStudentSucceed");
+  }
+
+
+    /**
+     * @dev For contract to getStudentAddress
+     *
+     */
+  function _getStudentAddress(string memory _id) internal view returns (address){
+    bytes32 encryptedId = keccak256(abi.encodePacked(_id));
+    require(_studentAddress[encryptedId] != address(0) , "Student does not exist.");
+    return _studentAddress[encryptedId];
+  }
+
+  /**
+  * @dev Check if address is student
+  *
+   */
+   function isStudent(address account) public view returns(bool){
+        return _getStudentFromAddress[account] != 0;
+   }
+
 }
